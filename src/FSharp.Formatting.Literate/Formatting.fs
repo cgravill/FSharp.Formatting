@@ -19,7 +19,7 @@ module internal Formatting =
                 mdlinkResolver = mdlinkResolver
             )
         | OutputKind.Markdown ->
-            Markdown.ToMd(
+            Markdown.ToMarkdown(
                 doc,
                 substitutions = substitutions,
                 crefResolver = crefResolver,

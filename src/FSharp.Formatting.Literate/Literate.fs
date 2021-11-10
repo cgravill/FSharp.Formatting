@@ -353,7 +353,12 @@ type Literate private () =
                 mdlinkResolver
 
         let doc = Transformations.replaceLiterateParagraphs ctx doc
-        Markdown.ToLatex(MarkdownDocument(doc.Paragraphs, doc.DefinedLinks), ?substitutions = substitutions, ?lineNumbers=lineNumbers)
+
+        Markdown.ToLatex(
+            MarkdownDocument(doc.Paragraphs, doc.DefinedLinks),
+            ?substitutions = substitutions,
+            ?lineNumbers = lineNumbers
+        )
 
     /// Write the literate document as Latex without using a template
     static member WriteLatex
@@ -382,7 +387,13 @@ type Literate private () =
                 mdlinkResolver
 
         let doc = Transformations.replaceLiterateParagraphs ctx doc
-        Markdown.WriteLatex(MarkdownDocument(doc.Paragraphs, doc.DefinedLinks), writer, ?substitutions = substitutions, ?lineNumbers=lineNumbers)
+
+        Markdown.WriteLatex(
+            MarkdownDocument(doc.Paragraphs, doc.DefinedLinks),
+            writer,
+            ?substitutions = substitutions,
+            ?lineNumbers = lineNumbers
+        )
 
     /// Formate the literate document as an iPython notebook
     static member ToPynb(doc: LiterateDocument, ?substitutions, ?crefResolver, ?mdlinkResolver) =
@@ -399,6 +410,17 @@ type Literate private () =
         let ctx = makeFormattingContext OutputKind.Fsx None None None substitutions None crefResolver mdlinkResolver
         let doc = Transformations.replaceLiterateParagraphs ctx doc
         Markdown.ToFsx(MarkdownDocument(doc.Paragraphs, doc.DefinedLinks), ?substitutions = substitutions)
+
+    /// Formate the literate document as an .fsx script
+    static member ToMarkdown(doc: LiterateDocument, ?substitutions, ?crefResolver, ?mdlinkResolver) =
+        let crefResolver = defaultArg crefResolver (fun _ -> None)
+        let mdlinkResolver = defaultArg mdlinkResolver (fun _ -> None)
+
+        let ctx =
+            makeFormattingContext OutputKind.Markdown None None None substitutions None crefResolver mdlinkResolver
+
+        let doc = Transformations.replaceLiterateParagraphs ctx doc
+        Markdown.ToMarkdown(MarkdownDocument(doc.Paragraphs, doc.DefinedLinks), ?substitutions = substitutions)
 
     /// Replace literate paragraphs with plain paragraphs
     static member internal FormatLiterateNodes

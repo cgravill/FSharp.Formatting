@@ -1057,12 +1057,13 @@ let ``ApiDocs test FsLib1`` (format: OutputFormat) =
     |> shouldEqual false
 
 [<Test>]
-let ``ApiDocs test examples`` () =
+[<TestCaseSource("formats")>]
+let ``ApiDocs test FsLib2`` (format: OutputFormat) =
     let library = testBin </> "FsLib2.dll" |> fullpath
 
-    let files = generateApiDocs [ library ] OutputFormat.Html false "FsLib2_examples"
+    let files = generateApiDocs [ library ] format false "FsLib2_examples"
 
-    let testFile = sprintf "fslib-commentexamples.%s" OutputFormat.Html.Extension
+    let testFile = sprintf "fslib-commentexamples.%s" format.Extension
 
     files.ContainsKey testFile |> shouldEqual true
     let content = files.[testFile]

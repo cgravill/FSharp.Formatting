@@ -153,8 +153,8 @@ module CommentExamples =
     /// <example>
     /// <code lang="fsharp">
     /// [&lt;ReflectedDefinition&gt;]
-    ///  let f x = (x, x)
+    /// let f x = (x, x)
     /// </code>
     /// </example>
-    /// 
-    let attribInCodeExample() = ()
+    ///
+    let attribInCodeExample () = ()

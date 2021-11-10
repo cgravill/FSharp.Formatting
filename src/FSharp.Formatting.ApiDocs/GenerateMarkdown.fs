@@ -11,10 +11,10 @@ let encode (x: string) =
     HttpUtility.HtmlEncode(x).Replace("|", "&#124;")
 
 let urlEncode (x: string) = HttpUtility.UrlEncode x
-let htmlString (x: ApiDocHtml) = (x.HtmlText.Trim())
+let htmlString (x: ApiDocHtml) = x.MarkdownText.Trim()
 
 let htmlStringSafe (x: ApiDocHtml) =
-    (x.HtmlText.Trim())
+    (x.MarkdownText.Trim())
         .Replace("\n", "<br />")
         .Replace("|", "&#124;")
 
@@ -43,7 +43,7 @@ type MarkdownRender(model: ApiDocModel) =
                         [ [ p [ link [ embedSafe (m.UsageHtml) ] ("#" + urlEncode (m.Name)) ] ]
                           [ let summary = m.Comment.Summary
 
-                            let emptySummary = summary.HtmlText |> String.IsNullOrWhiteSpace
+                            let emptySummary = summary.MarkdownText |> String.IsNullOrWhiteSpace
 
                             if not emptySummary then
                                 p [ embedSafe m.Comment.Summary; br ]
@@ -367,7 +367,7 @@ type MarkdownRender(model: ApiDocModel) =
         let getSubstitutons parameters toc (content: MarkdownDocument) pageTitle =
             [| yield! parameters
                yield (ParamKeys.``fsdocs-list-of-namespaces``, toc)
-               yield (ParamKeys.``fsdocs-content``, Markdown.ToMd(content))
+               yield (ParamKeys.``fsdocs-content``, Markdown.ToMarkdown(content))
                yield (ParamKeys.``fsdocs-source``, "")
                yield (ParamKeys.``fsdocs-tooltips``, "")
                yield (ParamKeys.``fsdocs-page-title``, pageTitle)
