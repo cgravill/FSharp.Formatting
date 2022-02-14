@@ -14,15 +14,15 @@ index: 1
 #r "FSharp.Formatting.Literate.dll"
 (*** condition: fsx ***)
 #if FSX
-#r "nuget: FSharp.Formatting,{{package-version}}"
+#r "nuget: FSharp.Formatting,{{fsdocs-package-version}}"
 #endif // FSX
 (*** condition: ipynb ***)
 #if IPYNB
-#r "nuget: FSharp.Formatting,{{package-version}}"
+#r "nuget: FSharp.Formatting,{{fsdocs-package-version}}"
 #endif // IPYNB
 
 (**
-[![Binder](img/badge-binder.svg)](https://mybinder.org/v2/gh/fsprojects/fsharp.formatting/master?filepath={{fsdocs-source-basename}}.ipynb)&emsp;
+[![Binder](img/badge-binder.svg)](https://mybinder.org/v2/gh/fsprojects/fsharp.formatting/gh-pages?filepath={{fsdocs-source-basename}}.ipynb)&emsp;
 [![Script](img/badge-script.svg)]({{root}}/{{fsdocs-source-basename}}.fsx)&emsp;
 [![Notebook](img/badge-notebook.svg)]({{root}}/{{fsdocs-source-basename}}.ipynb)
 
@@ -38,18 +38,6 @@ First, we need to load the assembly and open necessary namespaces:
 
 open FSharp.Formatting.CodeFormat
 open System.Reflection
-
-(**
-
-Starting a background agent
----------------------------
-
-The `FSharp.Formatting.CodeFormat` namespace contains `cref:T:FSharp.Formatting.CodeFormat.CodeFormat` type which is the
-entry point. The static method `cref:M:FSharp.Formatting.CodeFormat.CodeFormat.CreateAgent` starts a background worker that
-can be called to format snippets repeatedly:
-*)
-
-let formattingAgent = CodeFormat.CreateAgent()
 
 (**
 If you want to process multiple snippets, it is a good idea to keep the
@@ -70,8 +58,8 @@ let source =
       printfn "Hello world"
   """
 
-let snippets, errors =
-    formattingAgent.ParseAndCheckSource("C:\\snippet.fsx", source)
+let snippets, diagnostics =
+    CodeFormatter.ParseAndCheckSource("C:\\snippet.fsx", source, None, None, ignore)
 
 (**
 When calling the method, you need to specify a file name and the actual content

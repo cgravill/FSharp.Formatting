@@ -1,3 +1,24 @@
+## 14.0.1
+* Fixes 703, 700 - `--strict` is now considerably stricter, and more diagnostics being shown
+
+## 14.0.0
+
+* Fix [Getting ReturnType from ApiDocMember without Html already embedded](https://github.com/fsprojects/FSharp.Formatting/issues/708)
+
+## 13.0.1
+
+* Skip the output folder when processing
+
+## 13.0.0
+
+* Remove unused TransformAndOutputDocument from API
+* Fixes Can't yet format InlineHtmlBlock #723
+* Fixes `<code>` blocks are emitting `<pre>` blocks with escapes no longer escaped #712
+
+## 12.0.2
+
+* Remove front-matter output from notebooks
+
 ## 12.0.1
 
 * Improve package description
