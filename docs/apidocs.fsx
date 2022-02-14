@@ -15,18 +15,18 @@ index: 5
 #r "FSharp.Formatting.Literate.dll"
 (*** condition: fsx ***)
 #if FSX
-#r "nuget: FSharp.Formatting,{{package-version}}"
+#r "nuget: FSharp.Formatting,{{fsdocs-package-version}}"
 #endif // FSX
 (*** condition: ipynb ***)
 #if IPYNB
-#r "nuget: FSharp.Formatting,{{package-version}}"
+#r "nuget: FSharp.Formatting,{{fsdocs-package-version}}"
 #endif // IPYNB
 
 (*** hide ***)
 let root = "C:\\"
 
 (**
-[![Binder](img/badge-binder.svg)](https://mybinder.org/v2/gh/fsprojects/fsharp.formatting/master?filepath={{fsdocs-source-basename}}.ipynb)&emsp;
+[![Binder](img/badge-binder.svg)](https://mybinder.org/v2/gh/fsprojects/fsharp.formatting/gh-pages?filepath={{fsdocs-source-basename}}.ipynb)&emsp;
 [![Script](img/badge-script.svg)]({{root}}/{{fsdocs-source-basename}}.fsx)&emsp;
 [![Notebook](img/badge-notebook.svg)]({{root}}/{{fsdocs-source-basename}}.ipynb)
 
@@ -36,6 +36,19 @@ API Documentation Generation
 The [command-line tool `fsdocs`](commandline.html) can be used to generate documentation
 for F# libraries with XML comments.  The documentation is normally built using `fsdocs build` and developed using `fsdocs watch`. For
 the former the output will be placed in `output\reference` by default.
+
+## Selected projects
+
+`fsdocs` automatically selects the projects and "cracks" the project files for information
+
+* Projects with `GenerateDocumentationFile` and without `IsTestProject` are selected.
+* Projects must not use `TargetFrameworks` (only `TargetFramework`, singular).
+
+```text
+    <PropertyGroup>
+      <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+```
 
 ## Templates
 
@@ -232,7 +245,6 @@ If you want to exclude modules or functions from the API docs you can use the `[
 It needs to be set on a separate tripple-slashed line, but it could be either the first or the last:
 
 *)
-/// [omit]
 /// Some actual comment
 module Bar =
     let a = 42

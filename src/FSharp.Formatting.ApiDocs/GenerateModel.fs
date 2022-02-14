@@ -5,6 +5,7 @@ open System.Reflection
 open System.Collections.Generic
 open System.Text
 open System.IO
+open System.Web
 open System.Xml
 open System.Xml.Linq
 
@@ -113,7 +114,11 @@ type ApiDocHtml(html: string, id: string option) =
     member _.Id = id
 
 /// Represents a documentation comment attached to source code
-type ApiDocComment(summary, remarks, parameters, returns, examples, notes, exceptions, rawData) =
+type ApiDocComment(xmldoc, summary, remarks, parameters, returns, examples, notes, exceptions, rawData) =
+
+    /// The XElement for the XML doc if available
+    member _.Xml: XElement option = xmldoc
+
     /// The summary for the comment
     member _.Summary: ApiDocHtml = summary
 
@@ -138,7 +143,7 @@ type ApiDocComment(summary, remarks, parameters, returns, examples, notes, excep
     /// The raw data of the comment
     member _.RawData: KeyValuePair<string, string> list = rawData
 
-    static member internal Empty = ApiDocComment(ApiDocHtml("", None), None, [], None, [], [], [], [])
+    static member internal Empty = ApiDocComment(None, ApiDocHtml("", None), None, [], None, [], [], [], [])
 
 /// Represents a custom attribute attached to source code
 type ApiDocAttribute(name, fullName, constructorArguments, namedConstructorArguments) =
@@ -279,10 +284,10 @@ type ApiDocMemberDetails =
     | ApiDocMemberDetails of
         usageHtml: ApiDocHtml *
         paramTypes: (Choice<FSharpParameter, FSharpField> * string * ApiDocHtml) list *
-        returnType: ApiDocHtml option *
+        returnType: (FSharpType * ApiDocHtml) option *
         modifiers: string list *
         typars: string list *
-        baseType: ApiDocHtml option *
+        extendedType: (FSharpEntity * ApiDocHtml) option *
         location: string option *
         compiledName: string option
 
@@ -303,7 +308,7 @@ type ApiDocMember
         warn
     ) =
 
-    let (ApiDocMemberDetails (usageHtml, paramTypes, returnType, modifiers, typars, baseType, location, compiledName)) =
+    let (ApiDocMemberDetails (usageHtml, paramTypes, returnType, modifiers, typars, extendedType, location, compiledName)) =
         details
 
     let m = defaultArg symbol.DeclarationLocation range0
@@ -408,7 +413,7 @@ type ApiDocMember
     member x.SourceLocation: string option = location
 
     /// The type extended by an extension member, if any
-    member x.ExtendedType: ApiDocHtml option = baseType
+    member x.ExtendedType: (FSharpEntity * ApiDocHtml) option = extendedType
 
     /// The members details
     member x.Details = details
@@ -601,16 +606,16 @@ type ApiDocEntity
                       pats ]
 
     /// All interfaces of the type, formatted
-    member x.AllInterfaces: ApiDocHtml list = allInterfaces
+    member x.AllInterfaces: (FSharpType * ApiDocHtml) list = allInterfaces
 
     /// The base type of the type, formatted
-    member x.BaseType: ApiDocHtml option = baseType
+    member x.BaseType: (FSharpType * ApiDocHtml) option = baseType
 
     /// If this is a type abbreviation, then the abbreviated type
-    member x.AbbreviatedType: ApiDocHtml option = abbreviatedType
+    member x.AbbreviatedType: (FSharpType * ApiDocHtml) option = abbreviatedType
 
     /// If this is a delegate, then e formatted signature
-    member x.DelegateSignature: ApiDocHtml option = delegateSignature
+    member x.DelegateSignature: (FSharpDelegateSignature * ApiDocHtml) option = delegateSignature
 
     /// The constuctorsof the type
     member x.Constructors: ApiDocMember list = ctors
@@ -1368,7 +1373,6 @@ module internal SymbolReader =
           SourceFolderRepository: (string * string) option
           AssemblyPath: string
           CompilerOptions: string
-          FormatAgent: CodeFormatAgent
           Substitutions: Substitutions }
 
         member x.XmlMemberLookup(key) =
@@ -1387,7 +1391,6 @@ module internal SymbolReader =
                 urlMap,
                 assemblyPath,
                 fscOptions,
-                formatAgent,
                 substitutions,
                 warn
             ) =
@@ -1402,7 +1405,6 @@ module internal SymbolReader =
               SourceFolderRepository = sourceFolderRepo
               AssemblyPath = assemblyPath
               CompilerOptions = fscOptions
-              FormatAgent = formatAgent
               Substitutions = substitutions }
 
     let inline private getCompiledName (s: ^a :> FSharpSymbol) =
@@ -1643,7 +1645,10 @@ module internal SymbolReader =
                 if isUnitType retType then
                     None
                 else
-                    retTypeHtml
+                    match retTypeHtml with
+                    | None -> None
+                    | Some html -> Some(retType, html)
+
 
         //let signatureTooltip =
         //  match argInfos with
@@ -1651,10 +1656,13 @@ module internal SymbolReader =
         //  | [[x]] when (v.IsPropertyGetterMethod || v.HasGetterMethod) && x.Name.IsNone && isUnitType x.Type -> retTypeText
         //  | _  -> (formatArgsUsageAsText true v argInfos) + " -> " + retTypeText
 
-        let baseType =
+        let extendedType =
             if v.IsExtensionMember then
                 try
-                    Some(formatTyconRefAsHtml ctx.UrlMap v.ApparentEnclosingEntity |> codeHtml)
+                    Some(
+                        v.ApparentEnclosingEntity,
+                        formatTyconRefAsHtml ctx.UrlMap v.ApparentEnclosingEntity |> codeHtml
+                    )
                 with
                 | _ -> None
             else
@@ -1665,7 +1673,16 @@ module internal SymbolReader =
 
         let location = formatSourceLocation ctx.UrlRangeHighlight ctx.SourceFolderRepository loc
 
-        ApiDocMemberDetails(usageHtml, paramTypes, returnType, modifiers, typars, baseType, location, getCompiledName v)
+        ApiDocMemberDetails(
+            usageHtml,
+            paramTypes,
+            returnType,
+            modifiers,
+            typars,
+            extendedType,
+            location,
+            getCompiledName v
+        )
 
     let readUnionCase (ctx: ReadingContext) (_typ: FSharpEntity) (case: FSharpUnionCase) =
 
@@ -1761,7 +1778,7 @@ module internal SymbolReader =
             if isUnitType retType then
                 None
             else
-                Some retTypeHtml
+                Some(retType, retTypeHtml)
 
         let loc = tryGetLocation field
 
@@ -1838,7 +1855,7 @@ module internal SymbolReader =
 
         String.removeSpaces lines
 
-    let readMarkdownCommentAsHtml (doc: LiterateDocument) =
+    let readMarkdownCommentAsHtml el (doc: LiterateDocument) =
         let groups = System.Collections.Generic.List<(_ * _)>()
 
         let mutable current = "<default>"
@@ -1906,6 +1923,7 @@ module internal SymbolReader =
                 Some(ApiDocHtml(Literate.ToHtml(doc.With(paragraphs = returns)), None))
 
         ApiDocComment(
+            xmldoc = Some el,
             summary = summary,
             remarks = remarks,
             parameters = [],
@@ -1953,9 +1971,10 @@ module internal SymbolReader =
                     html.Append("</p>") |> ignore
                 | "paramref" ->
                     let name = elem.Attribute(XName.Get "name")
+                    let nameAsHtml = HttpUtility.HtmlEncode name.Value
 
                     if name <> null then
-                        html.AppendFormat("<span class=\"fsdocs-param-name\">{0}</span>", name.Value)
+                        html.AppendFormat("<span class=\"fsdocs-param-name\">{0}</span>", nameAsHtml)
                         |> ignore
                 | "see"
                 | "seealso" ->
@@ -1980,17 +1999,22 @@ module internal SymbolReader =
                             |> ignore
                         | _ ->
                             urlMap.ResolveCref cname |> ignore
-                            html.AppendFormat("{0}", cref.Value) |> ignore
+                            //let crefAsHtml = HttpUtility.HtmlEncode cref.Value
+                            html.Append(cref.Value) |> ignore
                 | "c" ->
                     html.Append("<code>") |> ignore
 
-                    html.Append(elem.Value.TrimEnd('\r', '\n', ' ')) |> ignore
+                    let code = elem.Value.TrimEnd('\r', '\n', ' ')
+                    let codeAsHtml = HttpUtility.HtmlEncode code
+                    html.Append(codeAsHtml) |> ignore
 
                     html.Append("</code>") |> ignore
                 | "code" ->
                     html.Append("<pre>") |> ignore
 
-                    html.Append(elem.Value.TrimEnd('\r', '\n', ' ')) |> ignore
+                    let code = elem.Value.TrimEnd('\r', '\n', ' ')
+                    let codeAsHtml = HttpUtility.HtmlEncode code
+                    html.Append(codeAsHtml) |> ignore
 
                     html.Append("</pre>") |> ignore
                 // 'a' is not part of the XML doc standard but is widely used
@@ -1998,7 +2022,8 @@ module internal SymbolReader =
                 // This allows any HTML to be transferred through
                 | _ ->
                     if anyTagsOK then
-                        html.Append(elem.ToString()) |> ignore
+                        let elemAsXml = elem.ToString()
+                        html.Append(elemAsXml) |> ignore
 
     let readXmlCommentAsHtmlAux
         summaryExpected
@@ -2192,6 +2217,7 @@ module internal SymbolReader =
 
         let comment =
             ApiDocComment(
+                xmldoc = Some doc,
                 summary = summary,
                 remarks = remarks,
                 parameters = parameters,
@@ -2215,6 +2241,10 @@ module internal SymbolReader =
 
     let combineComments (c1: ApiDocComment) (c2: ApiDocComment) =
         ApiDocComment(
+            xmldoc =
+                (match c1.Xml with
+                 | None -> c2.Xml
+                 | v -> v),
             summary = combineHtml c1.Summary c2.Summary,
             remarks = combineHtmlOptions c1.Remarks c2.Remarks,
             parameters = c1.Parameters @ c2.Parameters,
@@ -2330,7 +2360,7 @@ module internal SymbolReader =
 
         doc.With(paragraphs = replacedParagraphs)
 
-    let readMarkdownCommentAndCommands (ctx: ReadingContext) text (cmds: IDictionary<_, _>) =
+    let readMarkdownCommentAndCommands (ctx: ReadingContext) text el (cmds: IDictionary<_, _>) =
         let lines = removeSpaces text |> List.map (fun s -> (s, MarkdownRange.zero))
 
         let text =
@@ -2350,12 +2380,11 @@ module internal SymbolReader =
             Literate.ParseMarkdownString(
                 text,
                 path = Path.Combine(ctx.AssemblyPath, "docs.fsx"),
-                formatAgent = ctx.FormatAgent,
                 fscOptions = ctx.CompilerOptions
             )
 
         let doc = doc |> addMissingLinkToTypes ctx
-        let html = readMarkdownCommentAsHtml doc
+        let html = readMarkdownCommentAsHtml el doc
         // TODO: namespace summaries for markdown comments
         let nsdocs = None
         cmds, html, nsdocs
@@ -2410,7 +2439,7 @@ module internal SymbolReader =
                 cmds, doc, nsdocs
             | sum ->
                 if ctx.MarkdownComments then
-                    readMarkdownCommentAndCommands ctx sum.Value cmds
+                    readMarkdownCommentAndCommands ctx sum.Value el cmds
                 else
                     readXmlCommentAndCommands ctx sum.Value el cmds
 
@@ -2687,19 +2716,22 @@ module internal SymbolReader =
 
             let cvals, svals = svals |> List.partition (fun v -> v.CompiledName = ".ctor")
 
-            let baseType = typ.BaseType |> Option.map (formatTypeAsHtml ctx.UrlMap >> codeHtml)
+            let baseType =
+                typ.BaseType
+                |> Option.map (fun bty -> bty, bty |> formatTypeAsHtml ctx.UrlMap |> codeHtml)
 
-            let allInterfaces = [ for i in typ.AllInterfaces -> formatTypeAsHtml ctx.UrlMap i |> codeHtml ]
+            let allInterfaces = [ for i in typ.AllInterfaces -> (i, formatTypeAsHtml ctx.UrlMap i |> codeHtml) ]
 
             let abbreviatedType =
                 if typ.IsFSharpAbbreviation then
-                    Some(formatTypeAsHtml ctx.UrlMap typ.AbbreviatedType |> codeHtml)
+                    Some(typ.AbbreviatedType, formatTypeAsHtml ctx.UrlMap typ.AbbreviatedType |> codeHtml)
                 else
                     None
 
             let delegateSignature =
                 if typ.IsDelegate then
                     Some(
+                        typ.FSharpDelegateSignature,
                         formatDelegateSignatureAsHtml ctx.UrlMap typ.DisplayName typ.FSharpDelegateSignature
                         |> codeHtml
                     )
@@ -2903,8 +2935,6 @@ module internal SymbolReader =
         // Code formatting agent & options used when processing inline code snippets in comments
         let asmPath = Path.GetDirectoryName(defaultArg assembly.FileName xmlFile)
 
-        let formatAgent = CodeFormatAgent()
-
         let ctx =
             ReadingContext.Create(
                 publicOnly,
@@ -2916,7 +2946,6 @@ module internal SymbolReader =
                 urlMap,
                 asmPath,
                 codeFormatCompilerArgs,
-                formatAgent,
                 substitutions,
                 warn
             )
@@ -3036,7 +3065,7 @@ type ApiDocModel internal (substitutions, collection, entityInfos, root, qualify
             urlRangeHighlight,
             root,
             substitutions,
-            strict,
+            onError,
             extensions
         ) =
 
@@ -3094,11 +3123,8 @@ type ApiDocModel internal (substitutions, collection, entityInfos, root, qualify
 
                 match asmOpt with
                 | None ->
-                    if strict then
-                        failwithf "**** Skipping assembly '%s' because was not found in resolved assembly list" dllFile
-                    else
-                        printfn "**** Skipping assembly '%s' because was not found in resolved assembly list" dllFile
-
+                    printfn "**** Skipping assembly '%s' because was not found in resolved assembly list" dllFile
+                    onError "exiting"
                     None
                 | Some asm ->
                     printfn "  reading XML doc for %s..." dllFile
