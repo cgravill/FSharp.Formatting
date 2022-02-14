@@ -18,18 +18,30 @@ module Utils =
 
     let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 
-    let dotnet = if isWindows then "dotnet.exe" else "dotnet"
+    let dotnet =
+        if isWindows then
+            "dotnet.exe"
+        else
+            "dotnet"
 
     let fileExists pathToFile =
         try
             File.Exists(pathToFile)
-        with | _ -> false
+        with
+        | _ -> false
 
     // Look for global install of dotnet sdk
-    let getDotnetGlobalHostPath() =
+    let getDotnetGlobalHostPath () =
         let pf = Environment.GetEnvironmentVariable("ProgramW6432")
-        let pf = if String.IsNullOrEmpty(pf) then Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) else pf
+
+        let pf =
+            if String.IsNullOrEmpty(pf) then
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+            else
+                pf
+
         let candidate = Path.Combine(pf, "dotnet", dotnet)
+
         if fileExists candidate then
             Some candidate
         else
@@ -37,7 +49,7 @@ module Utils =
             None
 
     // from dotnet/fsharp
-    let getDotnetHostPath() =
+    let getDotnetHostPath () =
         // How to find dotnet.exe --- woe is me; probing rules make me sad.
         // Algorithm:
         // 1. Look for DOTNET_HOST_PATH environment variable
@@ -49,11 +61,15 @@ module Utils =
         //    See if the host is dotnet.exe ... from net5.0 on this is fairly unlikely
         // 4. If it's none of the above we are going to have to rely on the path containing the way to find dotnet.exe
         // Use the path to search for dotnet.exe
-        let probePathForDotnetHost() =
+        let probePathForDotnetHost () =
             let paths =
                 let p = Environment.GetEnvironmentVariable("PATH")
-                if not(isNull p) then p.Split(Path.PathSeparator) 
-                else [||]
+
+                if not (isNull p) then
+                    p.Split(Path.PathSeparator)
+                else
+                    [||]
+
             paths |> Array.tryFind (fun f -> fileExists (Path.Combine(f, dotnet)))
 
         match (Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")) with
@@ -64,12 +80,13 @@ module Utils =
             let candidate =
                 let assemblyLocation = Path.GetDirectoryName(typeof<Int32>.Assembly.Location)
                 Path.GetFullPath(Path.Combine(assemblyLocation, "..", "..", "..", dotnet))
+
             if fileExists candidate then
                 Some candidate
             else
                 match probePathForDotnetHost () with
-                | Some f -> Some (Path.Combine(f, dotnet))
-                | None -> getDotnetGlobalHostPath()
+                | Some f -> Some(Path.Combine(f, dotnet))
+                | None -> getDotnetGlobalHostPath ()
 
     let ensureDirectory path =
         let dir = DirectoryInfo(path)
@@ -251,21 +268,25 @@ module Crack =
 
         let parseProject (path: string) =
             try
-                let dotnetExe = getDotnetHostPath()
+                let dotnetExe = getDotnetHostPath ()
                 let cwd = Path.GetDirectoryName path |> System.IO.DirectoryInfo
                 let toolsPath = Ionide.ProjInfo.Init.init cwd (dotnetExe |> Option.map FileInfo)
                 let tfm = ProjectLoader.getTfm path (dict extraMsbuildProperties)
+
                 let readingProps =
                     Ionide.ProjInfo.ProjectLoader.getGlobalProps path tfm extraMsbuildProperties
                     |> Seq.toList
-                    |> List.map (fun (KeyValue(k,v)) -> (k,v))
+                    |> List.map (fun (KeyValue (k, v)) -> (k, v))
+
                 let loader = WorkspaceLoader.Create(toolsPath, readingProps)
+
                 loader.LoadProjects([ path ], customProperties, BinaryLogGeneration.Within cwd)
                 |> Seq.tryHead
                 |> function
-                    | None -> Error (Exception $"no result returned for loading {path}")
+                    | None -> Error(Exception $"no result returned for loading {path}")
                     | Some p -> Ok p
-            with err -> Error err
+            with
+            | err -> Error err
 
         let result = parseProject projectFile // ProjectLoader.getProjectInfo file extraMsbuildProperties BinaryLogGeneration.Off customProperties
         //file |> Inspect.getProjectInfos loggedMessages.Enqueue toolsPath [gp] []
