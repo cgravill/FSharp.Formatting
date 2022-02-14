@@ -936,42 +936,25 @@ let First = 0
 //        output = outputFile
 //    )
 
-[<Test>]
-let ``Can split formatted document and formatted tool tips`` () =
-    let content =
-        """(**
-hello
-*)
-let test = 42
-"""
-
-    let doc = Literate.ParseScriptString(content, "." </> "A.fsx", getFormatAgent ())
-
-    let doc2 = Literate.FormatLiterateNodes(doc, outputKind = OutputKind.Html)
-
-    let html = Literate.ToHtml(doc2.With(formattedTips = ""))
-
-    let tips = doc2.FormattedTips
-    tips |> shouldContainText "test: int"
-    html |> shouldNotContainText "test: int"
-    html |> shouldContainText "hello"
-
-[<Test>]
-let ``Formatted script transforms markdown links`` () =
-    let content =
-        """(**
-[hello](A.fsx)
-*)
-let test = 42
-"""
-
-    let doc = Literate.ParseScriptString(content, "." </> "A.fsx", getFormatAgent ())
-
-    let doc2 = Literate.FormatLiterateNodes(doc, outputKind = OutputKind.Html)
-
-//    html |> shouldContainText ">test<"
-//    html |> shouldNotContainText "HTML"
-//    html |> shouldNotContainText "endif"
+//[<Test>]
+//let ``Can split formatted document and formatted tool tips`` () =
+//    let content =
+//        """(**
+//hello
+//*)
+//let test = 42
+//"""
+//
+//    let doc = Literate.ParseScriptString(content, "." </> "A.fsx", getFormatAgent ())
+//
+//    let doc2 = Literate.FormatLiterateNodes(doc, outputKind = OutputKind.Html)
+//
+//    let html = Literate.ToHtml(doc2.With(formattedTips = ""))
+//
+//    let tips = doc2.FormattedTips
+//    tips |> shouldContainText "test: int"
+//    html |> shouldNotContainText "test: int"
+//    html |> shouldContainText "hello"
 
 
 [<Test>]
