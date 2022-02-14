@@ -1472,7 +1472,7 @@ module internal SymbolReader =
             customOpName.IsSome
             || isItemIndexer
             || not v.IsMember
-            || PrettyNaming.IsOperatorName v.CompiledName
+            || PrettyNaming.IsMangledOpName v.CompiledName
             || Char.IsLower(v.DisplayName.[0])
 
         let fullArgUsage =
@@ -1508,7 +1508,7 @@ module internal SymbolReader =
                 ]
 
             // op_XYZ operators
-            | _, false, _, name, _ when PrettyNaming.IsOperatorName v.CompiledName ->
+            | _, false, _, name, _ when PrettyNaming.IsOperatorDisplayName v.CompiledName ->
                 match argInfos with
                 // binary operators (taking a tuple)
                 | [ [ x; y ] ] ->
